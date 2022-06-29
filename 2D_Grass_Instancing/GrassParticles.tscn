@@ -1,0 +1,145 @@
+[gd_scene load_steps=10 format=2]
+
+[ext_resource path="res://icon.png" type="Texture" id=1]
+[ext_resource path="res://2D_Grass_Instancing/random_noise.png" type="Texture" id=2]
+[ext_resource path="res://2D_Grass_Instancing/pixel_art_grass_spritesheet.png" type="Texture" id=3]
+
+[sub_resource type="Shader" id=1]
+code = "shader_type canvas_item;
+
+uniform sampler2D spritesheet;
+uniform sampler2D random_noise : hint_black;
+uniform sampler2D wind_noise : hint_black;
+
+uniform int frames = 4;
+uniform vec4 top_color : hint_color = vec4(0.2, 0.8, 0.0, 1.0);
+uniform vec4 bottom_color : hint_color = vec4(0.15, 0.6, 0.0, 1.0);
+uniform float wind_scale = 1.0;
+uniform float wind_speed = 0.1;
+uniform float wind_strength = 0.1;
+
+uniform vec2 player_pos = vec2(0.0);
+uniform float player_radius = 20.0;
+uniform float player_radius_blend = 10.0;
+
+vec2 rotateUV(vec2 uv, float rotation, vec2 mid){
+	float cosAngle = cos(rotation);
+	float sinAngle = sin(rotation);
+	return vec2(
+		cosAngle * (uv.x - mid.x) + sinAngle * (uv.y - mid.y) + mid.x,
+		cosAngle * (uv.y - mid.y) - sinAngle * (uv.x - mid.x) + mid.y
+	);
+}
+
+varying vec2 world_pos;
+varying float player_mask;
+void vertex(){
+	world_pos = INSTANCE_CUSTOM.xy;
+	
+	// Wind
+	highp float wind = texture(wind_noise, (world_pos / wind_scale) + TIME * wind_speed).r;
+	wind = wind * 2.0 - 1.0;
+	
+	// Player interaction
+	float player_distance = distance(world_pos, player_pos);
+	float pm = smoothstep(player_radius, player_radius + player_radius_blend, player_distance);
+	player_mask = pm;
+	vec2 pd = normalize(world_pos - player_pos);
+	vec2 vup = vec2(0.0, 1.0);
+	float signed_angle = atan(vup.x*pd.y - vup.y*pd.x, vup.x*pd.x + vup.y*pd.y);
+	
+	float rotation = mix(signed_angle, wind * wind_strength, pm);
+	VERTEX = rotateUV(VERTEX, rotation, vec2(0.0));
+}
+
+void fragment(){
+	// Get random number using world position
+	vec2 rand_uv = world_pos;
+	vec2 rand_tex_size = vec2(textureSize(random_noise, 0));
+	rand_uv.x = mod(rand_uv.x, rand_tex_size.x);
+	rand_uv.y = mod(rand_uv.y, rand_tex_size.y);
+	float rand = texelFetch(random_noise, ivec2(rand_uv), 0).r;
+	float ff = float(frames);
+	rand = round(rand * ff);
+	
+	// Pick a random grass blade type from spritesheet
+	float frame_number = rand;
+	float fr = 1.0 / float(max(frames, 1));
+	float x_coord = mix(fr * frame_number, fr * frame_number + fr, UV.x);
+	vec2 midpoint = vec2(fr * frame_number + fr * 0.5, 0.5);
+	vec2 uv = vec2(x_coord, UV.y);
+	
+	// Coloring
+	vec4 tex_col = texture(spritesheet, uv);
+	vec3 color = mix(top_color.rgb, bottom_color.rgb, UV.y);
+	color *= tex_col.rgb;
+	
+	COLOR = vec4(color, tex_col.a * player_mask);
+}"
+
+[sub_resource type="OpenSimplexNoise" id=3]
+octaves = 2
+
+[sub_resource type="NoiseTexture" id=4]
+seamless = true
+noise = SubResource( 3 )
+
+[sub_resource type="ShaderMaterial" id=2]
+shader = SubResource( 1 )
+shader_param/frames = 4
+shader_param/top_color = Color( 0.686275, 0.929412, 0.294118, 1 )
+shader_param/bottom_color = Color( 0.313726, 0.435294, 0.172549, 1 )
+shader_param/wind_scale = 1000.0
+shader_param/wind_speed = 0.3
+shader_param/wind_strength = 0.4
+shader_param/player_pos = Vector2( 0, 0 )
+shader_param/player_radius = 40.0
+shader_param/player_radius_blend = 40.0
+shader_param/spritesheet = ExtResource( 3 )
+shader_param/random_noise = ExtResource( 2 )
+shader_param/wind_noise = SubResource( 4 )
+
+[sub_resource type="Shader" id=5]
+code = "shader_type particles;
+
+uniform float rows = 16;
+uniform float spacing = 1.0;
+
+void vertex() {
+	// obtain our position based on which particle we're rendering
+	vec3 pos = vec3(0.0, 0.0, 0.0);
+	pos.y = float(INDEX);
+	pos.x = mod(pos.y, rows);
+	pos.y = (pos.y - pos.x) / rows;
+	
+	// center this
+	pos.x -= rows * 0.5;
+	pos.y -= rows * 0.5;
+	
+	// and now apply our spacing
+	pos *= spacing;
+	
+	// now center on our particle location but within our spacing
+	pos.x += EMISSION_TRANSFORM[3][0] - mod(EMISSION_TRANSFORM[3][0], spacing);
+	pos.y += EMISSION_TRANSFORM[3][1] - mod(EMISSION_TRANSFORM[3][1], spacing);
+	
+	// update our transform to place
+	TRANSFORM[3][0] = pos.x;
+	TRANSFORM[3][1] = pos.y;
+	
+	// Pass world position to instances
+	CUSTOM.xy = pos.xy;
+}
+"
+
+[sub_resource type="ShaderMaterial" id=6]
+shader = SubResource( 5 )
+shader_param/rows = 110.0
+shader_param/spacing = 9.328
+
+[node name="GrassParticles" type="Particles2D"]
+material = SubResource( 2 )
+amount = 12100
+local_coords = false
+process_material = SubResource( 6 )
+texture = ExtResource( 1 )

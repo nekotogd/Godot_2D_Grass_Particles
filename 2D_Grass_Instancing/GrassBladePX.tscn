@@ -1,0 +1,77 @@
+[gd_scene load_steps=7 format=2]
+
+[ext_resource path="res://2D_Grass_Instancing/pixel_art_grass2.png" type="Texture" id=1]
+
+[sub_resource type="Shader" id=1]
+code = "shader_type canvas_item;
+
+uniform sampler2D noise : hint_black;
+
+uniform vec4 grass_color : hint_color = vec4(0.1, 0.6, 0.0, 1.0);
+uniform vec4 bottom_color : hint_color = vec4(0.1, 0.4, 0.0, 1.0);
+uniform float noise_scale = 1.0;
+uniform float time_scale = 0.1;
+uniform float wind_strength = 2.0;
+
+uniform vec2 player_pos = vec2(0.0);
+uniform float player_radius = 1.0;
+uniform float player_radius_blend = 0.2;
+uniform float stomp_height_offset = 2.0;
+
+varying float vertex_alpha;
+void vertex(){
+	vec2 world_pos = INSTANCE_CUSTOM.xy;
+	float n = texture(noise, world_pos * noise_scale + TIME * time_scale).r;
+	VERTEX += n * (1.0 - UV.y) * wind_strength;
+	
+	float pd = distance(world_pos, player_pos);
+	float stomp = smoothstep(player_radius, player_radius + player_radius_blend, pd);
+	float top_mask = step(UV.y, 0.5);
+	VERTEX.y = mix(VERTEX.y, VERTEX.y * stomp + stomp_height_offset, top_mask * (1.0 - stomp));
+	vertex_alpha = stomp;
+}
+
+void fragment(){
+	vec4 tex_col = texture(TEXTURE, UV);
+	COLOR.rgb = mix(grass_color.rgb, bottom_color.rgb, UV.y) * tex_col.rgb;
+	COLOR.rgb = tex_col.rgb;
+	COLOR.a = tex_col.a * vertex_alpha;
+}
+"
+
+[sub_resource type="OpenSimplexNoise" id=4]
+
+[sub_resource type="NoiseTexture" id=5]
+seamless = true
+noise = SubResource( 4 )
+
+[sub_resource type="ShaderMaterial" id=2]
+shader = SubResource( 1 )
+shader_param/grass_color = Color( 0.1, 0.6, 0, 1 )
+shader_param/bottom_color = Color( 0.1, 0.4, 0, 1 )
+shader_param/noise_scale = 0.232
+shader_param/time_scale = 0.2
+shader_param/wind_strength = 2.0
+shader_param/player_pos = Vector2( 80, 0 )
+shader_param/player_radius = 40.0
+shader_param/player_radius_blend = 40.0
+shader_param/stomp_height_offset = 4.0
+shader_param/noise = SubResource( 5 )
+
+[sub_resource type="ArrayMesh" id=3]
+surfaces/0 = {
+"aabb": AABB( -4, -4, 0, 8.00001, 8.00001, 0 ),
+"array_data": PoolByteArray( 0, 0, 128, 64, 0, 0, 128, 64, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 192, 0, 0, 128, 64, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 128, 192, 0, 0, 128, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 64, 0, 0, 128, 192, 0, 0, 128, 63, 0, 0, 0, 0 ),
+"array_index_data": PoolByteArray( 3, 0, 0, 0, 1, 0, 1, 0, 2, 0, 3, 0 ),
+"blend_shape_data": [  ],
+"format": 262417,
+"index_count": 6,
+"primitive": 4,
+"skeleton_aabb": [  ],
+"vertex_count": 4
+}
+
+[node name="GrassBladePX" type="MeshInstance2D"]
+material = SubResource( 2 )
+mesh = SubResource( 3 )
+texture = ExtResource( 1 )
