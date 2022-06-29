@@ -4,6 +4,8 @@ Just a prototype idea that I briefly showcased in [this video](https://www.youtu
 
 ![image](https://user-images.githubusercontent.com/81257780/176516477-d21ed323-6a50-4944-bd6c-497c1881236f.png)
 
+You can drag around the particle emitter and the grass will automatically reposition in real-time if you have `local_coords` disabled on the emitter.
+
 ## Concept
 
 Made of 2 shaders, a particle shader and a fragment+vertex shader
