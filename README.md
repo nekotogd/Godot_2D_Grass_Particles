@@ -1,6 +1,6 @@
 # 2D Grass Particles
 
-Just a prototype idea that I briefly showcased in [this video](https://www.youtube.com/watch?v=X7t3arcWNdc)
+Just a prototype idea that I briefly showcased in [this video](https://youtu.be/X7t3arcWNdc?t=165)
 
 ![image](https://user-images.githubusercontent.com/81257780/176516477-d21ed323-6a50-4944-bd6c-497c1881236f.png)
 
